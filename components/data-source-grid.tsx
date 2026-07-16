@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { updateDataSources, updateLicenses } from "@/lib/actions/search-actions";
+import { CATEGORY_GROUPS, formatLabel } from "@/lib/pulsar/category-groups";
 import {
   ONLINE_NEWS_LICENSE_VALUES,
   PRINT_NEWS_LICENSE_VALUES,
@@ -14,58 +15,6 @@ import {
   type OnlineNewsLicense,
   type PrintNewsLicense,
 } from "@/lib/pulsar/types";
-
-const GROUPS: { label: string; categories: Category[] }[] = [
-  {
-    label: "Social",
-    categories: [
-      "FACEBOOK",
-      "INSTAGRAM",
-      "INSTAGRAM_PUBLIC",
-      "X",
-      "LINKEDIN",
-      "TIKTOK",
-      "THREADS",
-      "PINTEREST",
-      "REDDIT",
-      "YOUTUBE",
-      "TWITCH",
-      "DISCORD",
-      "TUMBLR",
-      "SEA_FACEBOOK_PAGES",
-      "VK",
-    ],
-  },
-  {
-    label: "News & broadcast",
-    categories: ["ONLINE_NEWS", "PRINT_NEWS", "TV", "RADIO", "PODCAST"],
-  },
-  {
-    label: "Forums & reviews",
-    categories: ["FORUMS", "BLOGS", "REVIEWS", "TRIPADVISOR", "TRUSTPILOT", "SERMO", "DARK_WEB"],
-  },
-  {
-    label: "Chinese platforms",
-    categories: [
-      "BAIDU",
-      "CH_BAIDU",
-      "CHINESE_ONLINE_NEWS",
-      "BILIBILI",
-      "DOUYIN",
-      "KUAISHOU",
-      "LITTLE_RED_BOOK",
-      "TAOBAO",
-      "WECHAT",
-      "WEIBO",
-      "ZHIHU",
-      "NAVER",
-    ],
-  },
-  {
-    label: "Commerce & other",
-    categories: ["ALIEXPRESS", "AMAZON", "EXPEDIA", "FIRST_PARTY_DATA", "SEARCH"],
-  },
-];
 
 export function DataSourceGrid({
   searchId,
@@ -142,7 +91,7 @@ export function DataSourceGrid({
   return (
     <div className="space-y-6">
       <div className="grid gap-6 sm:grid-cols-2">
-        {GROUPS.map((group) => (
+        {CATEGORY_GROUPS.map((group) => (
           <div key={group.label} className="space-y-2">
             <h3 className="text-sm font-medium text-muted-foreground">{group.label}</h3>
             <div className="grid gap-2">
@@ -247,12 +196,4 @@ function setsEqual<T>(a: Set<T>, b: Set<T>) {
   if (a.size !== b.size) return false;
   for (const item of a) if (!b.has(item)) return false;
   return true;
-}
-
-function formatLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((word) => word[0]?.toUpperCase() + word.slice(1))
-    .join(" ");
 }

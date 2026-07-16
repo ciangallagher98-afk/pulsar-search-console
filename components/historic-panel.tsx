@@ -22,35 +22,11 @@ import {
   type HistoricAvailableAction,
   type HistoricCategory,
 } from "@/lib/pulsar/types";
-
-const TRANSIENT_STATUSES = new Set([
-  "CREATED",
-  "INITIALIZING",
-  "INITIALIZED",
-  "VALIDATING",
-  "VALIDATED",
-  "COMPILING",
-  "COMPILED",
-  "PREPARED",
-  "PREPARING",
-  "PREVIEWING",
-  "LAUNCHING",
-  "STARTING",
-  "STOPPING",
-  "RESUMING",
-  "COMPLETING",
-]);
-
-const ACTION_LABEL: Record<HistoricAvailableAction, string> = {
-  LAUNCH: "Launch ingestion",
-  AUTHORIZE_AND_START: "Authorize & start ingestion",
-  RESUME: "Resume",
-  STOP: "Stop",
-  DELETE: "Delete",
-  EXPORT: "Export",
-};
-
-const DESTRUCTIVE_ACTIONS = new Set<HistoricAvailableAction>(["STOP", "DELETE"]);
+import {
+  ACTION_LABEL,
+  DESTRUCTIVE_ACTIONS,
+  TRANSIENT_STATUSES,
+} from "@/lib/pulsar/historic-status";
 
 export function HistoricPanel({
   searchId,

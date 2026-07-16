@@ -4,14 +4,8 @@ import { revalidatePath } from "next/cache";
 import { pulsarRequest, PulsarAuthError } from "@/lib/pulsar/client";
 import { getHistorics } from "@/lib/pulsar/api";
 import { runMutation, type MutationResult } from "@/lib/pulsar/mutation-result";
-import {
-  AUTHORIZE_AND_START_HISTORIC,
-  CREATE_HISTORIC,
-  DELETE_HISTORIC,
-  LAUNCH_HISTORIC,
-  RESUME_HISTORIC,
-  STOP_HISTORIC,
-} from "@/lib/pulsar/mutations";
+import { CREATE_HISTORIC } from "@/lib/pulsar/mutations";
+import { ACTION_MUTATION } from "@/lib/pulsar/historic-status";
 import type {
   Historic,
   HistoricAvailableAction,
@@ -72,14 +66,6 @@ export async function createHistoricAction(
     return { ok: true };
   });
 }
-
-const ACTION_MUTATION: Record<Exclude<HistoricAvailableAction, "EXPORT">, string> = {
-  LAUNCH: LAUNCH_HISTORIC,
-  AUTHORIZE_AND_START: AUTHORIZE_AND_START_HISTORIC,
-  RESUME: RESUME_HISTORIC,
-  STOP: STOP_HISTORIC,
-  DELETE: DELETE_HISTORIC,
-};
 
 export async function dispatchHistoricAction(
   searchId: string,
