@@ -4,6 +4,7 @@ import { SearchFilters } from "@/components/search-filters";
 import { SearchTable } from "@/components/search-table";
 import { SessionBar } from "@/components/session-bar";
 import { PaginationBar } from "@/components/pagination-bar";
+import { FolderNav } from "@/components/folder-nav";
 import { splitLicenseValues, type Category, type SearchRealtimeStatus, type SearchType } from "@/lib/pulsar/types";
 
 export const dynamic = "force-dynamic";
@@ -74,8 +75,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <SessionBar />
       </div>
 
+      <FolderNav folders={folders} activeFolderId={params.folderId} />
+
       <SearchFilters
-        folders={folders}
         initialFolderId={params.folderId}
         initialName={params.name}
         initialType={params.type}

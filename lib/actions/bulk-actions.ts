@@ -6,7 +6,7 @@ import { getSearch, getHistorics } from "@/lib/pulsar/api";
 import { buildUpdateSearchPlan } from "@/lib/pulsar/search-kind";
 import { runInBatches } from "@/lib/pulsar/batch";
 import { ACTION_MUTATION } from "@/lib/pulsar/historic-status";
-import { CREATE_HISTORIC, START_SEARCH } from "@/lib/pulsar/mutations";
+import { CREATE_HISTORIC, START_SEARCH, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
 import {
   SESSION_EXPIRED_MESSAGE,
   type BulkHistoricRunResult,
@@ -67,12 +67,12 @@ export async function bulkUpdateDataSources(
       removeCategories.forEach((c) => next.delete(c));
 
       const plan = buildUpdateSearchPlan(current, { categories: Array.from(next) });
-      const data = await pulsarRequest<Record<string, { errors: string[] }>>(plan.mutation, {
+      const data = await pulsarRequest<Record<string, { errors: MutationError[] }>>(plan.mutation, {
         input: plan.input,
       });
       const payload = Object.values(data)[0];
       if (payload.errors?.length) {
-        return { ok: false, error: payload.errors.join("; ") };
+        return { ok: false, error: errorMessage(payload.errors) };
       }
       revalidatePath(`/searches/${id}`);
       return { ok: true };
@@ -106,12 +106,12 @@ export async function bulkUpdateLicenses(
         onlineNewsLicenses: Array.from(nextOnline),
         printNewsLicenses: Array.from(nextPrint),
       });
-      const data = await pulsarRequest<Record<string, { errors: string[] }>>(plan.mutation, {
+      const data = await pulsarRequest<Record<string, { errors: MutationError[] }>>(plan.mutation, {
         input: plan.input,
       });
       const payload = Object.values(data)[0];
       if (payload.errors?.length) {
-        return { ok: false, error: payload.errors.join("; ") };
+        return { ok: false, error: errorMessage(payload.errors) };
       }
       revalidatePath(`/searches/${id}`);
       return { ok: true };
@@ -126,11 +126,11 @@ export async function bulkStartSearch(
 ): Promise<BulkRunResult> {
   const results = await runInBatches(searches, ({ id, name }) =>
     toBulkResult(id, name, async () => {
-      const data = await pulsarRequest<{ startSearch: { errors: string[] } }>(START_SEARCH, {
+      const data = await pulsarRequest<{ startSearch: { errors: MutationError[] } }>(START_SEARCH, {
         input: { id },
       });
       if (data.startSearch.errors?.length) {
-        return { ok: false, error: data.startSearch.errors.join("; ") };
+        return { ok: false, error: errorMessage(data.startSearch.errors) };
       }
       revalidatePath(`/searches/${id}`);
       return { ok: true };
@@ -151,7 +151,7 @@ export async function bulkCreateHistorics(
   const results = await runInBatches(searches, async ({ id, name }) => {
     try {
       const data = await pulsarRequest<{
-        createHistoric: { errors: string[]; historics: Historic[] | null };
+        createHistoric: { errors: MutationError[]; historics: Historic[] | null };
       }>(CREATE_HISTORIC, {
         input: {
           searchId: id,
@@ -163,7 +163,7 @@ export async function bulkCreateHistorics(
         },
       });
       if (data.createHistoric.errors?.length) {
-        return { searchId: id, name, historicId: null, ok: false, error: data.createHistoric.errors.join("; ") };
+        return { searchId: id, name, historicId: null, ok: false, error: errorMessage(data.createHistoric.errors) };
       }
       const historic = data.createHistoric.historics?.[0] ?? null;
       if (!historic) {
@@ -216,12 +216,12 @@ export async function bulkDispatchHistoricAction(
         return { ok: false, error: "Export is not supported in this tool yet." };
       }
       const mutation = ACTION_MUTATION[action];
-      const data = await pulsarRequest<Record<string, { errors: string[] }>>(mutation, {
+      const data = await pulsarRequest<Record<string, { errors: MutationError[] }>>(mutation, {
         input: { ids: [historicId] },
       });
       const payload = Object.values(data)[0];
       if (payload.errors?.length) {
-        return { ok: false, error: payload.errors.join("; ") };
+        return { ok: false, error: errorMessage(payload.errors) };
       }
       revalidatePath(`/searches/${searchId}`);
       return { ok: true };

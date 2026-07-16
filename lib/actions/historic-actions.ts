@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { pulsarRequest, PulsarAuthError } from "@/lib/pulsar/client";
 import { getHistorics } from "@/lib/pulsar/api";
 import { runMutation, type MutationResult } from "@/lib/pulsar/mutation-result";
-import { CREATE_HISTORIC } from "@/lib/pulsar/mutations";
+import { CREATE_HISTORIC, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
 import { ACTION_MUTATION } from "@/lib/pulsar/historic-status";
 import type {
   Historic,
@@ -15,7 +15,7 @@ import type {
 } from "@/lib/pulsar/types";
 
 interface HistoricsPayload {
-  errors: string[];
+  errors: MutationError[];
   historics: Historic[] | null;
 }
 
@@ -60,7 +60,7 @@ export async function createHistoricAction(
       },
     });
     if (data.createHistoric.errors?.length) {
-      return { ok: false, error: data.createHistoric.errors.join("; ") };
+      return { ok: false, error: errorMessage(data.createHistoric.errors) };
     }
     revalidatePath(`/searches/${searchId}`);
     return { ok: true };
@@ -78,13 +78,13 @@ export async function dispatchHistoricAction(
 
   return runMutation(async () => {
     const mutation = ACTION_MUTATION[action];
-    const data = await pulsarRequest<Record<string, { errors: string[] }>>(mutation, {
+    const data = await pulsarRequest<Record<string, { errors: MutationError[] }>>(mutation, {
       input: { ids: [historicId] },
     });
     const payload = Object.values(data)[0];
 
     if (payload.errors?.length) {
-      return { ok: false, error: payload.errors.join("; ") };
+      return { ok: false, error: errorMessage(payload.errors) };
     }
 
     revalidatePath(`/searches/${searchId}`);

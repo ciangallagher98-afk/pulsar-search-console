@@ -4,20 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { CATEGORY_GROUPS, formatLabel } from "@/lib/pulsar/category-groups";
-import {
-  ONLINE_NEWS_LICENSE_VALUES,
-  PRINT_NEWS_LICENSE_VALUES,
-  type Folder,
-} from "@/lib/pulsar/types";
+import { ONLINE_NEWS_LICENSE_VALUES, PRINT_NEWS_LICENSE_VALUES } from "@/lib/pulsar/types";
 
 const TYPE_OPTIONS = [
   { value: "TOPICS", label: "Topics" },
@@ -54,7 +43,6 @@ function parseList(value?: string): string[] {
 }
 
 export function SearchFilters({
-  folders,
   initialFolderId,
   initialName,
   initialType,
@@ -62,7 +50,6 @@ export function SearchFilters({
   initialCategories,
   initialLicenses,
 }: {
-  folders: Folder[];
   initialFolderId?: string;
   initialName?: string;
   initialType?: string;
@@ -97,13 +84,6 @@ export function SearchFilters({
     router.push(params.size ? `/?${params.toString()}` : "/");
   }
 
-  function changeFolder(folderId: string | null) {
-    const params = buildParams();
-    if (folderId) params.set("folderId", folderId);
-    else params.delete("folderId");
-    router.push(params.size ? `/?${params.toString()}` : "/");
-  }
-
   function clearAll() {
     setName("");
     setType([]);
@@ -115,21 +95,6 @@ export function SearchFilters({
 
   return (
     <form onSubmit={apply} className="flex flex-wrap items-center gap-2">
-      {folders.length > 0 && (
-        <Select value={initialFolderId ?? "ALL"} onValueChange={(v) => changeFolder(v === "ALL" ? null : v)}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="All folders" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All folders</SelectItem>
-            {folders.map((folder) => (
-              <SelectItem key={folder.id} value={String(folder.id)}>
-                {folder.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
       <Input
         placeholder="Search by name…"
         value={name}

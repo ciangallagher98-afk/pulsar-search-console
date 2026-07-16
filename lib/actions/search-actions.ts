@@ -5,11 +5,11 @@ import { pulsarRequest } from "@/lib/pulsar/client";
 import { getSearch } from "@/lib/pulsar/api";
 import { buildUpdateSearchPlan } from "@/lib/pulsar/search-kind";
 import { runMutation, type MutationResult } from "@/lib/pulsar/mutation-result";
-import { START_SEARCH, STOP_SEARCH } from "@/lib/pulsar/mutations";
+import { START_SEARCH, STOP_SEARCH, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
 import type { Category, OnlineNewsLicense, PrintNewsLicense, Search } from "@/lib/pulsar/types";
 
 interface SearchPayload {
-  errors: string[];
+  errors: MutationError[];
   search: Search | null;
 }
 
@@ -32,7 +32,7 @@ async function runUpdate(
     const payload = Object.values(data)[0];
 
     if (payload.errors?.length) {
-      return { ok: false, error: payload.errors.join("; ") };
+      return { ok: false, error: errorMessage(payload.errors) };
     }
 
     revalidatePath(`/searches/${searchId}`);
@@ -61,7 +61,7 @@ export async function startSearchAction(searchId: string): Promise<MutationResul
       input: { id: searchId },
     });
     if (data.startSearch.errors?.length) {
-      return { ok: false, error: data.startSearch.errors.join("; ") };
+      return { ok: false, error: errorMessage(data.startSearch.errors) };
     }
     revalidatePath(`/searches/${searchId}`);
     return { ok: true };
@@ -74,7 +74,7 @@ export async function stopSearchAction(searchId: string): Promise<MutationResult
       input: { id: searchId },
     });
     if (data.stopSearch.errors?.length) {
-      return { ok: false, error: data.stopSearch.errors.join("; ") };
+      return { ok: false, error: errorMessage(data.stopSearch.errors) };
     }
     revalidatePath(`/searches/${searchId}`);
     return { ok: true };

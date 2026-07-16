@@ -8,11 +8,20 @@ import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { BulkDataSourcesDialog } from "@/components/bulk-data-sources-dialog";
 import { BulkLicensesDialog } from "@/components/bulk-licenses-dialog";
 import { bulkStartSearch } from "@/lib/actions/bulk-actions";
+import type { Category, OnlineNewsLicense, PrintNewsLicense } from "@/lib/pulsar/types";
+
+export interface SelectedSearch {
+  id: string;
+  name: string;
+  categories: Category[];
+  onlineNewsLicenses: OnlineNewsLicense[];
+  printNewsLicenses: PrintNewsLicense[];
+}
 
 export function BulkActionsToolbar({
   searches,
 }: {
-  searches: { id: string; name: string }[];
+  searches: SelectedSearch[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();

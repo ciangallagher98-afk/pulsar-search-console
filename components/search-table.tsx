@@ -16,12 +16,12 @@ import { BadgeList } from "@/components/badge-list";
 import { BulkActionsToolbar } from "@/components/bulk-actions-toolbar";
 import type { Search } from "@/lib/pulsar/types";
 
-const REALTIME_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
-  STARTED: "default",
-  SCHEDULED: "secondary",
-  STOPPED: "outline",
-  COMPLETED: "outline",
-  NOT_PRESENT: "outline",
+const REALTIME_STYLE: Record<string, string> = {
+  STARTED: "border-transparent bg-success/15 text-success dark:bg-success/20",
+  SCHEDULED: "border-transparent bg-warning/20 text-warning-foreground dark:bg-warning/25",
+  STOPPED: "border-border text-muted-foreground",
+  COMPLETED: "border-border text-muted-foreground",
+  NOT_PRESENT: "border-border text-muted-foreground",
 };
 
 export function SearchTable({ searches }: { searches: Search[] }) {
@@ -52,7 +52,13 @@ export function SearchTable({ searches }: { searches: Search[] }) {
 
   const selectedSearches = searches
     .filter((s) => selected.has(s.id))
-    .map((s) => ({ id: String(s.id), name: s.name || `Search ${s.id}` }));
+    .map((s) => ({
+      id: String(s.id),
+      name: s.name || `Search ${s.id}`,
+      categories: s.categories ?? [],
+      onlineNewsLicenses: s.onlineNewsLicenses ?? [],
+      printNewsLicenses: s.printNewsLicenses ?? [],
+    }));
 
   return (
     <div className="space-y-3">
@@ -106,7 +112,10 @@ export function SearchTable({ searches }: { searches: Search[] }) {
                   />
                 </TableCell>
                 <TableCell>
-                  <Badge variant={REALTIME_VARIANT[search.realtimeStatus ?? ""] ?? "outline"}>
+                  <Badge
+                    variant="outline"
+                    className={REALTIME_STYLE[search.realtimeStatus ?? ""] ?? REALTIME_STYLE.NOT_PRESENT}
+                  >
                     {search.realtimeStatus ?? "NOT_PRESENT"}
                   </Badge>
                 </TableCell>

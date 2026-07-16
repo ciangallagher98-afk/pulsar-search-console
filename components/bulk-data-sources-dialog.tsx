@@ -18,36 +18,55 @@ import { bulkUpdateDataSources } from "@/lib/actions/bulk-actions";
 import { CATEGORY_GROUPS, formatLabel } from "@/lib/pulsar/category-groups";
 import type { BulkResult } from "@/lib/pulsar/bulk-result";
 import type { Category } from "@/lib/pulsar/types";
+import type { SelectedSearch } from "@/components/bulk-actions-toolbar";
+
+// A category counts as "on" once the user has touched its checkbox; whatever
+// it settles on (checked vs. not) becomes an add or remove. Untouched
+// categories are left alone, so a mixed selection doesn't clobber searches
+// that already differ from each other.
+function countEnabled(searches: SelectedSearch[], category: Category) {
+  return searches.filter((s) => s.categories.includes(category)).length;
+}
 
 export function BulkDataSourcesDialog({
   trigger,
   searches,
 }: {
   trigger: React.ReactElement;
-  searches: { id: string; name: string }[];
+  searches: SelectedSearch[];
 }) {
   const [open, setOpen] = useState(false);
-  const [toAdd, setToAdd] = useState<Set<Category>>(new Set());
-  const [toRemove, setToRemove] = useState<Set<Category>>(new Set());
+  const [desired, setDesired] = useState<Set<Category>>(
+    () => new Set(CATEGORY_GROUPS.flatMap((g) => g.categories).filter((c) => countEnabled(searches, c) === searches.length)),
+  );
+  const [touched, setTouched] = useState<Set<Category>>(new Set());
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function toggle(set: Set<Category>, setter: (s: Set<Category>) => void, category: Category, checked: boolean) {
-    const next = new Set(set);
-    if (checked) next.add(category);
-    else next.delete(category);
-    setter(next);
+  function toggle(category: Category, checked: boolean) {
+    setDesired((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(category);
+      else next.delete(category);
+      return next;
+    });
+    setTouched((prev) => new Set(prev).add(category));
   }
 
   function reset() {
-    setToAdd(new Set());
-    setToRemove(new Set());
+    setDesired(
+      new Set(CATEGORY_GROUPS.flatMap((g) => g.categories).filter((c) => countEnabled(searches, c) === searches.length)),
+    );
+    setTouched(new Set());
     setResults(null);
   }
 
+  const toAdd = Array.from(touched).filter((c) => desired.has(c));
+  const toRemove = Array.from(touched).filter((c) => !desired.has(c));
+
   function apply() {
     startTransition(async () => {
-      const result = await bulkUpdateDataSources(searches, Array.from(toAdd), Array.from(toRemove));
+      const result = await bulkUpdateDataSources(searches, toAdd, toRemove);
       setResults(result.results);
     });
   }
@@ -65,8 +84,9 @@ export function BulkDataSourcesDialog({
         <DialogHeader>
           <DialogTitle>Edit data sources for {searches.length} searches</DialogTitle>
           <DialogDescription>
-            Selected sources are added to every search below; removed sources are taken away.
-            Each search keeps whatever else it already has enabled.
+            Ticked = enabled on every selected search. A dash means it&apos;s only enabled on
+            some. Tick to enable everywhere, untick to remove everywhere — anything you don&apos;t
+            touch is left as-is.
           </DialogDescription>
         </DialogHeader>
 
@@ -78,31 +98,29 @@ export function BulkDataSourcesDialog({
               <div key={group.label} className="space-y-2">
                 <h3 className="text-sm font-medium text-muted-foreground">{group.label}</h3>
                 <div className="space-y-1.5">
-                  {group.categories.map((category) => (
-                    <div key={category} className="flex items-center justify-between gap-3 text-sm">
-                      <span>{formatLabel(category)}</span>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Checkbox
-                            checked={toAdd.has(category)}
-                            onCheckedChange={(checked) =>
-                              toggle(toAdd, setToAdd, category, checked === true)
-                            }
-                          />
-                          Add
+                  {group.categories.map((category) => {
+                    const enabledCount = countEnabled(searches, category);
+                    const indeterminate =
+                      !touched.has(category) && enabledCount > 0 && enabledCount < searches.length;
+                    return (
+                      <div key={category} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          id={`bds-${category}`}
+                          checked={desired.has(category)}
+                          indeterminate={indeterminate}
+                          onCheckedChange={(checked) => toggle(category, checked === true)}
+                        />
+                        <label htmlFor={`bds-${category}`} className="cursor-pointer">
+                          {formatLabel(category)}
                         </label>
-                        <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Checkbox
-                            checked={toRemove.has(category)}
-                            onCheckedChange={(checked) =>
-                              toggle(toRemove, setToRemove, category, checked === true)
-                            }
-                          />
-                          Remove
-                        </label>
+                        {enabledCount > 0 && enabledCount < searches.length && (
+                          <span className="text-xs text-muted-foreground">
+                            ({enabledCount}/{searches.length})
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -116,7 +134,7 @@ export function BulkDataSourcesDialog({
           ) : (
             <Button
               onClick={apply}
-              disabled={isPending || (toAdd.size === 0 && toRemove.size === 0)}
+              disabled={isPending || touched.size === 0}
             >
               {isPending ? "Applying…" : `Apply to ${searches.length} searches`}
             </Button>

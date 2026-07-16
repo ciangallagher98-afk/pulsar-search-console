@@ -1,4 +1,7 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatLabel } from "@/lib/pulsar/category-groups";
 
 export function BadgeList({
@@ -15,19 +18,39 @@ export function BadgeList({
   }
 
   const shown = items.slice(0, max);
-  const overflow = items.length - shown.length;
+  const overflow = items.slice(max);
 
   return (
     <div className="flex flex-wrap gap-1">
       {shown.map((item) => (
-        <Badge key={item} variant="outline" className="font-normal text-xs">
+        <Badge key={item} variant="secondary" className="font-normal text-xs">
           {formatLabel(item)}
         </Badge>
       ))}
-      {overflow > 0 && (
-        <Badge variant="outline" className="font-normal text-xs text-muted-foreground">
-          +{overflow}
-        </Badge>
+      {overflow.length > 0 && (
+        <Popover>
+          <PopoverTrigger
+            render={
+              <button type="button">
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer font-normal text-xs text-muted-foreground hover:bg-accent"
+                >
+                  +{overflow.length}
+                </Badge>
+              </button>
+            }
+          />
+          <PopoverContent className="w-56" align="start">
+            <div className="flex flex-wrap gap-1">
+              {items.map((item) => (
+                <Badge key={item} variant="secondary" className="font-normal text-xs">
+                  {formatLabel(item)}
+                </Badge>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );

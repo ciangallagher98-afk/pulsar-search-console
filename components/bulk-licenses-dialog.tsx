@@ -23,9 +23,14 @@ import {
   type PrintNewsLicense,
 } from "@/lib/pulsar/types";
 import type { BulkResult } from "@/lib/pulsar/bulk-result";
+import type { SelectedSearch } from "@/components/bulk-actions-toolbar";
 
-function useLicenseSet<T extends string>() {
-  return useState<Set<T>>(new Set());
+function countOnline(searches: SelectedSearch[], license: OnlineNewsLicense) {
+  return searches.filter((s) => s.onlineNewsLicenses.includes(license)).length;
+}
+
+function countPrint(searches: SelectedSearch[], license: PrintNewsLicense) {
+  return searches.filter((s) => s.printNewsLicenses.includes(license)).length;
 }
 
 export function BulkLicensesDialog({
@@ -33,43 +38,58 @@ export function BulkLicensesDialog({
   searches,
 }: {
   trigger: React.ReactElement;
-  searches: { id: string; name: string }[];
+  searches: SelectedSearch[];
 }) {
   const [open, setOpen] = useState(false);
-  const [addOnline, setAddOnline] = useLicenseSet<OnlineNewsLicense>();
-  const [removeOnline, setRemoveOnline] = useLicenseSet<OnlineNewsLicense>();
-  const [addPrint, setAddPrint] = useLicenseSet<PrintNewsLicense>();
-  const [removePrint, setRemovePrint] = useLicenseSet<PrintNewsLicense>();
+  const [desiredOnline, setDesiredOnline] = useState<Set<OnlineNewsLicense>>(
+    () => new Set(ONLINE_NEWS_LICENSE_VALUES.filter((l) => countOnline(searches, l) === searches.length)),
+  );
+  const [desiredPrint, setDesiredPrint] = useState<Set<PrintNewsLicense>>(
+    () => new Set(PRINT_NEWS_LICENSE_VALUES.filter((l) => countPrint(searches, l) === searches.length)),
+  );
+  const [touchedOnline, setTouchedOnline] = useState<Set<OnlineNewsLicense>>(new Set());
+  const [touchedPrint, setTouchedPrint] = useState<Set<PrintNewsLicense>>(new Set());
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function toggle<T extends string>(set: Set<T>, setter: (s: Set<T>) => void, value: T, checked: boolean) {
-    const next = new Set(set);
-    if (checked) next.add(value);
-    else next.delete(value);
-    setter(next);
+  function toggleOnline(license: OnlineNewsLicense, checked: boolean) {
+    setDesiredOnline((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(license);
+      else next.delete(license);
+      return next;
+    });
+    setTouchedOnline((prev) => new Set(prev).add(license));
+  }
+
+  function togglePrint(license: PrintNewsLicense, checked: boolean) {
+    setDesiredPrint((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(license);
+      else next.delete(license);
+      return next;
+    });
+    setTouchedPrint((prev) => new Set(prev).add(license));
   }
 
   function reset() {
-    setAddOnline(new Set());
-    setRemoveOnline(new Set());
-    setAddPrint(new Set());
-    setRemovePrint(new Set());
+    setDesiredOnline(new Set(ONLINE_NEWS_LICENSE_VALUES.filter((l) => countOnline(searches, l) === searches.length)));
+    setDesiredPrint(new Set(PRINT_NEWS_LICENSE_VALUES.filter((l) => countPrint(searches, l) === searches.length)));
+    setTouchedOnline(new Set());
+    setTouchedPrint(new Set());
     setResults(null);
   }
 
-  const hasChanges =
-    addOnline.size > 0 || removeOnline.size > 0 || addPrint.size > 0 || removePrint.size > 0;
+  const addOnline = Array.from(touchedOnline).filter((l) => desiredOnline.has(l));
+  const removeOnline = Array.from(touchedOnline).filter((l) => !desiredOnline.has(l));
+  const addPrint = Array.from(touchedPrint).filter((l) => desiredPrint.has(l));
+  const removePrint = Array.from(touchedPrint).filter((l) => !desiredPrint.has(l));
+
+  const hasChanges = touchedOnline.size > 0 || touchedPrint.size > 0;
 
   function apply() {
     startTransition(async () => {
-      const result = await bulkUpdateLicenses(
-        searches,
-        Array.from(addOnline),
-        Array.from(removeOnline),
-        Array.from(addPrint),
-        Array.from(removePrint),
-      );
+      const result = await bulkUpdateLicenses(searches, addOnline, removeOnline, addPrint, removePrint);
       setResults(result.results);
     });
   }
@@ -87,7 +107,9 @@ export function BulkLicensesDialog({
         <DialogHeader>
           <DialogTitle>Edit news licenses for {searches.length} searches</DialogTitle>
           <DialogDescription>
-            Applies as an add/remove diff against whatever each search already has.
+            Ticked = enabled on every selected search. A dash means it&apos;s only enabled on
+            some. Tick to enable everywhere, untick to remove everywhere — anything you don&apos;t
+            touch is left as-is.
           </DialogDescription>
         </DialogHeader>
 
@@ -97,30 +119,30 @@ export function BulkLicensesDialog({
           <div className="space-y-6">
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-muted-foreground">Online news licenses</h3>
-              <div className="grid gap-2">
-                {ONLINE_NEWS_LICENSE_VALUES.map((license) => (
-                  <div key={license} className="flex items-center gap-3 text-sm">
-                    <span className="w-40 shrink-0">{formatLabel(license)}</span>
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="grid gap-1.5">
+                {ONLINE_NEWS_LICENSE_VALUES.map((license) => {
+                  const enabledCount = countOnline(searches, license);
+                  const indeterminate =
+                    !touchedOnline.has(license) && enabledCount > 0 && enabledCount < searches.length;
+                  return (
+                    <div key={license} className="flex items-center gap-2 text-sm">
                       <Checkbox
-                        checked={addOnline.has(license)}
-                        onCheckedChange={(checked) =>
-                          toggle(addOnline, setAddOnline, license, checked === true)
-                        }
+                        id={`bl-online-${license}`}
+                        checked={desiredOnline.has(license)}
+                        indeterminate={indeterminate}
+                        onCheckedChange={(checked) => toggleOnline(license, checked === true)}
                       />
-                      Add
-                    </label>
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Checkbox
-                        checked={removeOnline.has(license)}
-                        onCheckedChange={(checked) =>
-                          toggle(removeOnline, setRemoveOnline, license, checked === true)
-                        }
-                      />
-                      Remove
-                    </label>
-                  </div>
-                ))}
+                      <label htmlFor={`bl-online-${license}`} className="cursor-pointer">
+                        {formatLabel(license)}
+                      </label>
+                      {enabledCount > 0 && enabledCount < searches.length && (
+                        <span className="text-xs text-muted-foreground">
+                          ({enabledCount}/{searches.length})
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -128,30 +150,30 @@ export function BulkLicensesDialog({
 
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-muted-foreground">Print news licenses</h3>
-              <div className="grid gap-2">
-                {PRINT_NEWS_LICENSE_VALUES.map((license) => (
-                  <div key={license} className="flex items-center gap-3 text-sm">
-                    <span className="w-40 shrink-0">{formatLabel(license)}</span>
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="grid gap-1.5">
+                {PRINT_NEWS_LICENSE_VALUES.map((license) => {
+                  const enabledCount = countPrint(searches, license);
+                  const indeterminate =
+                    !touchedPrint.has(license) && enabledCount > 0 && enabledCount < searches.length;
+                  return (
+                    <div key={license} className="flex items-center gap-2 text-sm">
                       <Checkbox
-                        checked={addPrint.has(license)}
-                        onCheckedChange={(checked) =>
-                          toggle(addPrint, setAddPrint, license, checked === true)
-                        }
+                        id={`bl-print-${license}`}
+                        checked={desiredPrint.has(license)}
+                        indeterminate={indeterminate}
+                        onCheckedChange={(checked) => togglePrint(license, checked === true)}
                       />
-                      Add
-                    </label>
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Checkbox
-                        checked={removePrint.has(license)}
-                        onCheckedChange={(checked) =>
-                          toggle(removePrint, setRemovePrint, license, checked === true)
-                        }
-                      />
-                      Remove
-                    </label>
-                  </div>
-                ))}
+                      <label htmlFor={`bl-print-${license}`} className="cursor-pointer">
+                        {formatLabel(license)}
+                      </label>
+                      {enabledCount > 0 && enabledCount < searches.length && (
+                        <span className="text-xs text-muted-foreground">
+                          ({enabledCount}/{searches.length})
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
