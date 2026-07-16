@@ -29,16 +29,33 @@ import type { BulkResult } from "@/lib/pulsar/bulk-result";
 interface PreviewRow {
   searchId: string;
   name: string;
-  historicId: number | null;
-  historic: Historic | null;
+  historicIds: number[];
+  // Populated once the first status refresh comes back — one Historic per
+  // data-source category requested, since Pulsar creates a separate historic
+  // per category rather than a single combined one.
+  historics: Historic[];
   error?: string;
 }
 
-function pickLaunchAction(historic: Historic | null): HistoricAvailableAction | null {
-  if (!historic) return null;
+function pickLaunchAction(historic: Historic): HistoricAvailableAction | null {
   if (historic.availableActions.includes("AUTHORIZE_AND_START")) return "AUTHORIZE_AND_START";
   if (historic.availableActions.includes("LAUNCH")) return "LAUNCH";
   return null;
+}
+
+// A row is "settled" once every historic it's waiting on has been fetched
+// at least once and none of them are still in a transient (in-progress) status.
+function rowSettled(row: PreviewRow): boolean {
+  if (row.historicIds.length === 0) return true;
+  if (row.historics.length !== row.historicIds.length) return false;
+  return row.historics.every((h) => !TRANSIENT_STATUSES.has(h.status));
+}
+
+function rowLaunchActions(row: PreviewRow): { historicId: number; action: HistoricAvailableAction }[] {
+  return row.historics.flatMap((h) => {
+    const action = pickLaunchAction(h);
+    return action ? [{ historicId: h.id, action }] : [];
+  });
 }
 
 export function BulkHistoricWizard({
@@ -64,11 +81,11 @@ export function BulkHistoricWizard({
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const settled = rows.every((r) => !r.historic || !TRANSIENT_STATUSES.has(r.historic.status));
+  const settled = rows.every(rowSettled);
 
   useEffect(() => {
     if (stage !== "results") return;
-    const pending = rows.filter((r) => r.historicId !== null && r.historic && TRANSIENT_STATUSES.has(r.historic.status));
+    const pending = rows.filter((r) => r.historicIds.length > 0 && !rowSettled(r));
     if (pending.length === 0) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
@@ -80,8 +97,8 @@ export function BulkHistoricWizard({
 
     pollRef.current = setInterval(async () => {
       const pairs = rows
-        .filter((r) => r.historicId !== null)
-        .map((r) => ({ searchId: r.searchId, historicId: r.historicId as number, name: r.name }));
+        .filter((r) => r.historicIds.length > 0)
+        .map((r) => ({ searchId: r.searchId, historicIds: r.historicIds, name: r.name }));
       const result = await bulkRefreshHistorics(pairs);
       if (result.sessionExpired) {
         if (pollRef.current) {
@@ -94,7 +111,7 @@ export function BulkHistoricWizard({
       setRows((prev) =>
         prev.map((row) => {
           const match = result.statuses.find((s) => s.searchId === row.searchId);
-          return match ? { ...row, historic: match.historic, error: match.error } : row;
+          return match ? { ...row, historics: match.historics, error: match.error } : row;
         }),
       );
     }, 3000);
@@ -139,12 +156,12 @@ export function BulkHistoricWizard({
       const initialRows: PreviewRow[] = result.results.map((r) => ({
         searchId: r.searchId,
         name: r.name,
-        historicId: r.historicId,
-        historic: null,
+        historicIds: r.historicIds,
+        historics: [],
         error: r.error,
       }));
       setRows(initialRows);
-      setChecked(new Set(initialRows.filter((r) => r.historicId !== null).map((r) => r.searchId)));
+      setChecked(new Set(initialRows.filter((r) => r.historicIds.length > 0).map((r) => r.searchId)));
       setStage("results");
     });
   }
@@ -152,24 +169,25 @@ export function BulkHistoricWizard({
   function launch() {
     startTransition(async () => {
       const items = rows
-        .filter((r) => checked.has(r.searchId) && r.historicId !== null)
-        .map((r) => ({
-          searchId: r.searchId,
-          historicId: r.historicId as number,
-          name: r.name,
-          action: pickLaunchAction(r.historic) as HistoricAvailableAction,
-        }))
-        .filter((r) => r.action !== null);
+        .filter((r) => checked.has(r.searchId))
+        .flatMap((r) =>
+          rowLaunchActions(r).map(({ historicId, action }) => ({
+            searchId: r.searchId,
+            historicId,
+            name: r.name,
+            action,
+          })),
+        );
 
       const result = await bulkDispatchHistoricAction(items);
       setLaunchResults(result.results);
     });
   }
 
-  const launchableRows = rows.filter((r) => pickLaunchAction(r.historic) !== null);
+  const launchableRows = rows.filter((r) => rowSettled(r) && rowLaunchActions(r).length > 0);
   const checkedTotal = rows
     .filter((r) => checked.has(r.searchId))
-    .reduce((sum, r) => sum + (r.historic?.previewResult ?? 0), 0);
+    .reduce((sum, r) => sum + r.historics.reduce((s, h) => s + (h.previewResult ?? 0), 0), 0);
   const checkedCount = rows.filter((r) => checked.has(r.searchId)).length;
 
   if (stage === "configure") {
@@ -248,44 +266,82 @@ export function BulkHistoricWizard({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {rows.map((row) => (
-            <div key={row.searchId} className="rounded-md border p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  {row.historicId !== null && (
-                    <Checkbox
-                      checked={checked.has(row.searchId)}
-                      onCheckedChange={(c) =>
-                        setChecked((prev) => {
-                          const next = new Set(prev);
-                          if (c === true) next.add(row.searchId);
-                          else next.delete(row.searchId);
-                          return next;
-                        })
-                      }
-                      disabled={!pickLaunchAction(row.historic)}
-                    />
-                  )}
-                  <span className="text-sm font-medium">{row.name}</span>
+          {rows.map((row) => {
+            const readyCount = row.historics.filter((h) => !TRANSIENT_STATUSES.has(h.status)).length;
+            const loaded = row.historics.length === row.historicIds.length;
+            const rowTotal = row.historics.reduce((sum, h) => sum + (h.previewResult ?? 0), 0);
+            const combinedGraph = row.historics.find(
+              (h) => h.previewGraphData && h.previewGraphData.length > 0,
+            )?.previewGraphData;
+
+            return (
+              <div key={row.searchId} className="rounded-md border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {row.historicIds.length > 0 && (
+                      <Checkbox
+                        checked={checked.has(row.searchId)}
+                        onCheckedChange={(c) =>
+                          setChecked((prev) => {
+                            const next = new Set(prev);
+                            if (c === true) next.add(row.searchId);
+                            else next.delete(row.searchId);
+                            return next;
+                          })
+                        }
+                        disabled={!rowSettled(row) || rowLaunchActions(row).length === 0}
+                      />
+                    )}
+                    <span className="text-sm font-medium">{row.name}</span>
+                  </div>
+                  <Badge variant={rowSettled(row) ? "outline" : "secondary"}>
+                    {!loaded
+                      ? row.error
+                        ? "ERROR"
+                        : "PENDING"
+                      : rowSettled(row)
+                        ? "Preview complete"
+                        : `${readyCount}/${row.historics.length} sources ready`}
+                  </Badge>
                 </div>
-                <Badge variant={row.historic && TRANSIENT_STATUSES.has(row.historic.status) ? "secondary" : "outline"}>
-                  {row.historic?.status ?? (row.error ? "ERROR" : "PENDING")}
-                </Badge>
+                {row.error && <p className="mt-1 text-xs text-destructive">{row.error}</p>}
+                {row.historics.length > 0 && (
+                  <>
+                    {rowTotal > 0 && (
+                      <p className="mt-1 text-sm">
+                        Estimated volume: <span className="font-medium">{rowTotal.toLocaleString()}</span> items
+                        across {row.historics.length} sources
+                      </p>
+                    )}
+                    <div className="mt-2 space-y-1">
+                      {row.historics.map((h) => (
+                        <div
+                          key={h.id}
+                          className="flex items-center justify-between text-xs text-muted-foreground"
+                        >
+                          <span>{h.category}</span>
+                          <span className="flex items-center gap-2">
+                            {h.previewResult != null && <span>{h.previewResult.toLocaleString()} items</span>}
+                            <Badge
+                              variant={TRANSIENT_STATUSES.has(h.status) ? "secondary" : "outline"}
+                              className="text-[10px]"
+                            >
+                              {h.status}
+                            </Badge>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {combinedGraph && (
+                  <div className="mt-2">
+                    <PreviewBarChart points={combinedGraph} />
+                  </div>
+                )}
               </div>
-              {row.error && <p className="mt-1 text-xs text-destructive">{row.error}</p>}
-              {row.historic?.previewResult != null && (
-                <p className="mt-1 text-sm">
-                  Estimated volume:{" "}
-                  <span className="font-medium">{row.historic.previewResult.toLocaleString()}</span> items
-                </p>
-              )}
-              {row.historic?.previewGraphData && row.historic.previewGraphData.length > 0 && (
-                <div className="mt-2">
-                  <PreviewBarChart points={row.historic.previewGraphData} />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 

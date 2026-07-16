@@ -163,24 +163,24 @@ export async function bulkCreateHistorics(
         },
       });
       if (data.createHistoric.errors?.length) {
-        return { searchId: id, name, historicId: null, ok: false, error: errorMessage(data.createHistoric.errors) };
+        return { searchId: id, name, historicIds: [], ok: false, error: errorMessage(data.createHistoric.errors) };
       }
-      const historic = data.createHistoric.historics?.[0] ?? null;
-      if (!historic) {
-        return { searchId: id, name, historicId: null, ok: false, error: "No historic returned" };
+      const historics = data.createHistoric.historics ?? [];
+      if (historics.length === 0) {
+        return { searchId: id, name, historicIds: [], ok: false, error: "No historic returned" };
       }
-      return { searchId: id, name, historicId: historic.id, ok: true };
+      return { searchId: id, name, historicIds: historics.map((h) => h.id), ok: true };
     } catch (error) {
       if (error instanceof PulsarAuthError) {
-        return { searchId: id, name, historicId: null, ok: false, error: SESSION_EXPIRED_MESSAGE };
+        return { searchId: id, name, historicIds: [], ok: false, error: SESSION_EXPIRED_MESSAGE };
       }
       if (error instanceof PulsarApiError) {
-        return { searchId: id, name, historicId: null, ok: false, error: error.message };
+        return { searchId: id, name, historicIds: [], ok: false, error: error.message };
       }
       return {
         searchId: id,
         name,
-        historicId: null,
+        historicIds: [],
         ok: false,
         error: "Something went wrong talking to Pulsar.",
       };
@@ -190,18 +190,18 @@ export async function bulkCreateHistorics(
 }
 
 export async function bulkRefreshHistorics(
-  pairs: { searchId: string; historicId: number; name: string }[],
+  pairs: { searchId: string; historicIds: number[]; name: string }[],
 ): Promise<BulkHistoricStatusRunResult> {
-  const statuses = await runInBatches(pairs, async ({ searchId, historicId, name }) => {
+  const statuses = await runInBatches(pairs, async ({ searchId, historicIds, name }) => {
     try {
-      const historics = await getHistorics(searchId);
-      const historic = historics.find((h) => h.id === historicId) ?? null;
-      return { searchId, name, historicId, historic };
+      const all = await getHistorics(searchId);
+      const historics = all.filter((h) => historicIds.includes(h.id));
+      return { searchId, name, historics };
     } catch (error) {
       if (error instanceof PulsarAuthError) {
-        return { searchId, name, historicId, historic: null, error: SESSION_EXPIRED_MESSAGE };
+        return { searchId, name, historics: [], error: SESSION_EXPIRED_MESSAGE };
       }
-      return { searchId, name, historicId, historic: null, error: "Couldn't refresh status" };
+      return { searchId, name, historics: [], error: "Couldn't refresh status" };
     }
   });
   return { statuses, sessionExpired: statuses.some((s) => s.error === SESSION_EXPIRED_MESSAGE) };
