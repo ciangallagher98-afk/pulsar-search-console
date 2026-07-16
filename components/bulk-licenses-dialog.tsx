@@ -23,7 +23,7 @@ import {
   type PrintNewsLicense,
 } from "@/lib/pulsar/types";
 import type { BulkResult } from "@/lib/pulsar/bulk-result";
-import type { SelectedSearch } from "@/components/bulk-actions-toolbar";
+import type { SelectedSearch } from "@/lib/pulsar/types";
 
 function countOnline(searches: SelectedSearch[], license: OnlineNewsLicense) {
   return searches.filter((s) => s.onlineNewsLicenses.includes(license)).length;

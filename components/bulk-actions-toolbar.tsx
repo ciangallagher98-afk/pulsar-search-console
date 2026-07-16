@@ -7,16 +7,10 @@ import { Button } from "@/components/ui/button";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { BulkDataSourcesDialog } from "@/components/bulk-data-sources-dialog";
 import { BulkLicensesDialog } from "@/components/bulk-licenses-dialog";
-import { bulkStartSearch } from "@/lib/actions/bulk-actions";
-import type { Category, OnlineNewsLicense, PrintNewsLicense } from "@/lib/pulsar/types";
+import { bulkStartSearch, bulkStopSearch } from "@/lib/actions/bulk-actions";
+import type { SelectedSearch } from "@/lib/pulsar/types";
 
-export interface SelectedSearch {
-  id: string;
-  name: string;
-  categories: Category[];
-  onlineNewsLicenses: OnlineNewsLicense[];
-  printNewsLicenses: PrintNewsLicense[];
-}
+export type { SelectedSearch };
 
 export function BulkActionsToolbar({
   searches,
@@ -35,6 +29,21 @@ export function BulkActionsToolbar({
       } else {
         toast.error(
           `${succeeded} of ${result.results.length} started — check individual searches for errors`,
+        );
+      }
+      router.refresh();
+    });
+  }
+
+  function goOffline() {
+    startTransition(async () => {
+      const result = await bulkStopSearch(searches);
+      const succeeded = result.results.filter((r) => r.ok).length;
+      if (succeeded === result.results.length) {
+        toast.success(`Stopped live collection for ${succeeded} searches`);
+      } else {
+        toast.error(
+          `${succeeded} of ${result.results.length} stopped — check individual searches for errors`,
         );
       }
       router.refresh();
@@ -60,6 +69,18 @@ export function BulkActionsToolbar({
         >
           Preview & launch historics
         </Button>
+        <ConfirmActionDialog
+          trigger={
+            <Button variant="outline" size="sm" disabled={isPending}>
+              Stop live collection
+            </Button>
+          }
+          title={`Stop live collection for ${searches.length} searches?`}
+          description="This stops real-time data collection on every selected search."
+          confirmLabel="Stop"
+          destructive
+          onConfirm={goOffline}
+        />
         <ConfirmActionDialog
           trigger={
             <Button size="sm" disabled={isPending}>

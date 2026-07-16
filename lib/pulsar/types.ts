@@ -259,3 +259,13 @@ export interface Folder {
   name: string;
   searchIds: number[];
 }
+
+// The shape every bulk-edit surface (table row selection, folder selection)
+// normalizes into before handing off to BulkActionsToolbar and its dialogs.
+export interface SelectedSearch {
+  id: string;
+  name: string;
+  categories: Category[];
+  onlineNewsLicenses: OnlineNewsLicense[];
+  printNewsLicenses: PrintNewsLicense[];
+}

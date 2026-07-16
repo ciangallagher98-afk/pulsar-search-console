@@ -17,8 +17,7 @@ import { BulkResultsTable } from "@/components/bulk-results-table";
 import { bulkUpdateDataSources } from "@/lib/actions/bulk-actions";
 import { CATEGORY_GROUPS, formatLabel } from "@/lib/pulsar/category-groups";
 import type { BulkResult } from "@/lib/pulsar/bulk-result";
-import type { Category } from "@/lib/pulsar/types";
-import type { SelectedSearch } from "@/components/bulk-actions-toolbar";
+import type { Category, SelectedSearch } from "@/lib/pulsar/types";
 
 // A category counts as "on" once the user has touched its checkbox; whatever
 // it settles on (checked vs. not) becomes an add or remove. Untouched

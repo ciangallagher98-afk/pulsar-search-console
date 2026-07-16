@@ -6,7 +6,7 @@ import { getSearch, getHistorics } from "@/lib/pulsar/api";
 import { buildUpdateSearchPlan } from "@/lib/pulsar/search-kind";
 import { runInBatches } from "@/lib/pulsar/batch";
 import { ACTION_MUTATION } from "@/lib/pulsar/historic-status";
-import { CREATE_HISTORIC, START_SEARCH, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
+import { CREATE_HISTORIC, START_SEARCH, STOP_SEARCH, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
 import {
   SESSION_EXPIRED_MESSAGE,
   type BulkHistoricRunResult,
@@ -131,6 +131,25 @@ export async function bulkStartSearch(
       });
       if (data.startSearch.errors?.length) {
         return { ok: false, error: errorMessage(data.startSearch.errors) };
+      }
+      revalidatePath(`/searches/${id}`);
+      return { ok: true };
+    }),
+  );
+  revalidatePath("/");
+  return toRunResult(results);
+}
+
+export async function bulkStopSearch(
+  searches: { id: string; name: string }[],
+): Promise<BulkRunResult> {
+  const results = await runInBatches(searches, ({ id, name }) =>
+    toBulkResult(id, name, async () => {
+      const data = await pulsarRequest<{ stopSearch: { errors: MutationError[] } }>(STOP_SEARCH, {
+        input: { id },
+      });
+      if (data.stopSearch.errors?.length) {
+        return { ok: false, error: errorMessage(data.stopSearch.errors) };
       }
       revalidatePath(`/searches/${id}`);
       return { ok: true };
