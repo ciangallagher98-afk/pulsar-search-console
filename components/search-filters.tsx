@@ -4,9 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MultiSelectFilter } from "@/components/multi-select-filter";
 import { CATEGORY_GROUPS, formatLabel } from "@/lib/pulsar/category-groups";
-import { ONLINE_NEWS_LICENSE_VALUES, PRINT_NEWS_LICENSE_VALUES } from "@/lib/pulsar/types";
+import {
+  ONLINE_NEWS_LICENSE_VALUES,
+  PRINT_NEWS_LICENSE_VALUES,
+  type Folder,
+} from "@/lib/pulsar/types";
 
 const TYPE_OPTIONS = [
   { value: "TOPICS", label: "Topics" },
@@ -43,12 +54,16 @@ function parseList(value?: string): string[] {
 }
 
 export function SearchFilters({
+  folders,
+  initialFolderId,
   initialName,
   initialType,
   initialRealtimeStatus,
   initialCategories,
   initialLicenses,
 }: {
+  folders: Folder[];
+  initialFolderId?: string;
   initialName?: string;
   initialType?: string;
   initialRealtimeStatus?: string;
@@ -65,14 +80,27 @@ export function SearchFilters({
   const activeCount =
     (name ? 1 : 0) + type.length + realtimeStatus.length + categories.length + licenses.length;
 
-  function apply(e?: FormEvent) {
-    e?.preventDefault();
+  function buildParams() {
     const params = new URLSearchParams();
+    if (initialFolderId) params.set("folderId", initialFolderId);
     if (name) params.set("name", name);
     if (type.length) params.set("type", type.join(","));
     if (realtimeStatus.length) params.set("realtimeStatus", realtimeStatus.join(","));
     if (categories.length) params.set("categories", categories.join(","));
     if (licenses.length) params.set("licenses", licenses.join(","));
+    return params;
+  }
+
+  function apply(e?: FormEvent) {
+    e?.preventDefault();
+    const params = buildParams();
+    router.push(params.size ? `/?${params.toString()}` : "/");
+  }
+
+  function changeFolder(folderId: string | null) {
+    const params = buildParams();
+    if (folderId) params.set("folderId", folderId);
+    else params.delete("folderId");
     router.push(params.size ? `/?${params.toString()}` : "/");
   }
 
@@ -82,11 +110,26 @@ export function SearchFilters({
     setRealtimeStatus([]);
     setCategories([]);
     setLicenses([]);
-    router.push("/");
+    router.push(initialFolderId ? `/?folderId=${initialFolderId}` : "/");
   }
 
   return (
     <form onSubmit={apply} className="flex flex-wrap items-center gap-2">
+      {folders.length > 0 && (
+        <Select value={initialFolderId ?? "ALL"} onValueChange={(v) => changeFolder(v === "ALL" ? null : v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All folders" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All folders</SelectItem>
+            {folders.map((folder) => (
+              <SelectItem key={folder.id} value={String(folder.id)}>
+                {folder.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <Input
         placeholder="Search by name…"
         value={name}

@@ -249,6 +249,13 @@ export interface SearchesFilter {
   categories?: Category[];
   onlineNewsLicenses?: OnlineNewsLicense[];
   printNewsLicenses?: PrintNewsLicense[];
+  folderId?: string;
   first?: number;
   after?: string;
+}
+
+export interface Folder {
+  id: number;
+  name: string;
+  searchIds: number[];
 }

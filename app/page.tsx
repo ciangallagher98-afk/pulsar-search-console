@@ -1,21 +1,23 @@
-import Link from "next/link";
-import { getSearches } from "@/lib/pulsar/api";
+import { getFolders, getSearches } from "@/lib/pulsar/api";
 import { withAuthGuard } from "@/lib/pulsar/guard";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchTable } from "@/components/search-table";
 import { SessionBar } from "@/components/session-bar";
+import { PaginationBar } from "@/components/pagination-bar";
 import { splitLicenseValues, type Category, type SearchRealtimeStatus, type SearchType } from "@/lib/pulsar/types";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   searchParams: Promise<{
+    folderId?: string;
     name?: string;
     type?: string;
     realtimeStatus?: string;
     categories?: string;
     licenses?: string;
-    after?: string;
+    cursors?: string;
+    pageSize?: string;
   }>;
 }
 
@@ -32,18 +34,33 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     parseList(params.licenses),
   );
 
-  const connection = await withAuthGuard(() =>
-    getSearches({
-      name: params.name,
-      type: type.length ? type : undefined,
-      realtimeStatus: realtimeStatus.length ? realtimeStatus : undefined,
-      categories: categories.length ? categories : undefined,
-      onlineNewsLicenses: onlineNewsLicenses.length ? onlineNewsLicenses : undefined,
-      printNewsLicenses: printNewsLicenses.length ? printNewsLicenses : undefined,
-      first: 25,
-      after: params.after,
-    }),
-  );
+  const cursors = parseList(params.cursors);
+  const pageSize = params.pageSize && ["25", "50", "75", "100", "ALL"].includes(params.pageSize)
+    ? params.pageSize
+    : "25";
+  const first = pageSize === "ALL" ? Infinity : Number(pageSize);
+  const after = cursors.length ? cursors[cursors.length - 1] : undefined;
+
+  const { connection, folders } = await withAuthGuard(async () => {
+    const [connection, folders] = await Promise.all([
+      getSearches({
+        name: params.name,
+        type: type.length ? type : undefined,
+        realtimeStatus: realtimeStatus.length ? realtimeStatus : undefined,
+        categories: categories.length ? categories : undefined,
+        onlineNewsLicenses: onlineNewsLicenses.length ? onlineNewsLicenses : undefined,
+        printNewsLicenses: printNewsLicenses.length ? printNewsLicenses : undefined,
+        folderId: params.folderId,
+        first,
+        after,
+      }),
+      getFolders(),
+    ]);
+    return { connection, folders };
+  });
+
+  const rangeStart = cursors.length * Number(pageSize === "ALL" ? 0 : pageSize) + 1;
+  const rangeEnd = rangeStart + connection.nodes.length - 1;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -58,6 +75,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </div>
 
       <SearchFilters
+        folders={folders}
+        initialFolderId={params.folderId}
         initialName={params.name}
         initialType={params.type}
         initialRealtimeStatus={params.realtimeStatus}
@@ -69,24 +88,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <SearchTable searches={connection.nodes} />
       </div>
 
-      <div className="mt-6 flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Showing {connection.nodes.length} of {connection.totalCount}
-        </span>
-        {connection.pageInfo.hasNextPage && connection.pageInfo.endCursor ? (
-          <Link
-            className="underline underline-offset-4 hover:text-foreground"
-            href={{
-              pathname: "/",
-              query: {
-                ...params,
-                after: connection.pageInfo.endCursor,
-              },
-            }}
-          >
-            Next page →
-          </Link>
-        ) : null}
+      <div className="mt-6">
+        <PaginationBar
+          currentParams={params}
+          cursors={cursors}
+          pageSize={pageSize}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          totalCount={connection.totalCount}
+          hasNextPage={connection.pageInfo.hasNextPage}
+          nextCursor={connection.pageInfo.endCursor}
+        />
       </div>
     </main>
   );

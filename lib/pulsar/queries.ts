@@ -56,6 +56,7 @@ export const SEARCHES_QUERY = `
     $categories: [CategoryEnum!]
     $onlineNewsLicenses: [OnlineNewsLicenseEnum!]
     $printNewsLicenses: [PrintNewsLicenseEnum!]
+    $folderId: ID
     $first: Int
     $after: String
   ) {
@@ -67,6 +68,7 @@ export const SEARCHES_QUERY = `
       categories: $categories
       onlineNewsLicenses: $onlineNewsLicenses
       printNewsLicenses: $printNewsLicenses
+      folderId: $folderId
       first: $first
       after: $after
       sortBy: UPDATED_AT
@@ -81,6 +83,23 @@ export const SEARCHES_QUERY = `
       }
       nodes {
         ${SEARCH_FIELDS}
+      }
+    }
+  }
+`;
+
+export const FOLDERS_QUERY = `
+  query Folders($first: Int, $after: String) {
+    folders(first: $first, after: $after) {
+      totalCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        id
+        name
+        searchIds
       }
     }
   }
