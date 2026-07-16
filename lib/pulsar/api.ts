@@ -8,6 +8,10 @@ export async function getSearches(filter: SearchesFilter = {}): Promise<SearchCo
     name: filter.name || undefined,
     status: filter.status?.length ? filter.status : undefined,
     type: filter.type?.length ? filter.type : undefined,
+    realtimeStatus: filter.realtimeStatus?.length ? filter.realtimeStatus : undefined,
+    categories: filter.categories?.length ? filter.categories : undefined,
+    onlineNewsLicenses: filter.onlineNewsLicenses?.length ? filter.onlineNewsLicenses : undefined,
+    printNewsLicenses: filter.printNewsLicenses?.length ? filter.printNewsLicenses : undefined,
     first: filter.first ?? 25,
     after: filter.after,
   });

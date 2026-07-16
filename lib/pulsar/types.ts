@@ -118,6 +118,20 @@ export const PRINT_NEWS_LICENSE_VALUES = [
 ] as const;
 export type PrintNewsLicense = (typeof PRINT_NEWS_LICENSE_VALUES)[number];
 
+// Online and print license enum values don't overlap, so a combined filter
+// UI can hold one flat list of selections and split it back out here.
+export function splitLicenseValues(values: string[]): {
+  online: OnlineNewsLicense[];
+  print: PrintNewsLicense[];
+} {
+  const onlineSet = new Set<string>(ONLINE_NEWS_LICENSE_VALUES);
+  const printSet = new Set<string>(PRINT_NEWS_LICENSE_VALUES);
+  return {
+    online: values.filter((v): v is OnlineNewsLicense => onlineSet.has(v)),
+    print: values.filter((v): v is PrintNewsLicense => printSet.has(v)),
+  };
+}
+
 export const BROADCAST_LICENSE_VALUES = [
   "GLOBAL_BROADCAST",
   "NO_RESTRICTION",
@@ -231,6 +245,10 @@ export interface SearchesFilter {
   name?: string;
   status?: string[];
   type?: SearchType[];
+  realtimeStatus?: SearchRealtimeStatus[];
+  categories?: Category[];
+  onlineNewsLicenses?: OnlineNewsLicense[];
+  printNewsLicenses?: PrintNewsLicense[];
   first?: number;
   after?: string;
 }

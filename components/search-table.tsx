@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { BadgeList } from "@/components/badge-list";
 import { BulkActionsToolbar } from "@/components/bulk-actions-toolbar";
 import type { Search } from "@/lib/pulsar/types";
 
@@ -71,6 +72,7 @@ export function SearchTable({ searches }: { searches: Search[] }) {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Data sources</TableHead>
+              <TableHead>News licenses</TableHead>
               <TableHead>Live status</TableHead>
               <TableHead>Team</TableHead>
             </TableRow>
@@ -93,8 +95,15 @@ export function SearchTable({ searches }: { searches: Search[] }) {
                 <TableCell>
                   <Badge variant="outline">{search.type}</Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {search.categories?.length ? `${search.categories.length} enabled` : "None"}
+                <TableCell className="max-w-56">
+                  <BadgeList items={search.categories ?? []} />
+                </TableCell>
+                <TableCell className="max-w-40">
+                  <BadgeList
+                    items={[...(search.onlineNewsLicenses ?? []), ...(search.printNewsLicenses ?? [])]}
+                    max={2}
+                    emptyLabel="None"
+                  />
                 </TableCell>
                 <TableCell>
                   <Badge variant={REALTIME_VARIANT[search.realtimeStatus ?? ""] ?? "outline"}>

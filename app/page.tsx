@@ -4,7 +4,7 @@ import { withAuthGuard } from "@/lib/pulsar/guard";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchTable } from "@/components/search-table";
 import { SessionBar } from "@/components/session-bar";
-import type { SearchType } from "@/lib/pulsar/types";
+import { splitLicenseValues, type Category, type SearchRealtimeStatus, type SearchType } from "@/lib/pulsar/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,18 +12,34 @@ interface PageProps {
   searchParams: Promise<{
     name?: string;
     type?: string;
+    realtimeStatus?: string;
+    categories?: string;
+    licenses?: string;
     after?: string;
   }>;
 }
 
+function parseList(value?: string): string[] {
+  return value ? value.split(",").filter(Boolean) : [];
+}
+
 export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const type = params.type ? ([params.type] as SearchType[]) : undefined;
+  const type = parseList(params.type) as SearchType[];
+  const realtimeStatus = parseList(params.realtimeStatus) as SearchRealtimeStatus[];
+  const categories = parseList(params.categories) as Category[];
+  const { online: onlineNewsLicenses, print: printNewsLicenses } = splitLicenseValues(
+    parseList(params.licenses),
+  );
 
   const connection = await withAuthGuard(() =>
     getSearches({
       name: params.name,
-      type,
+      type: type.length ? type : undefined,
+      realtimeStatus: realtimeStatus.length ? realtimeStatus : undefined,
+      categories: categories.length ? categories : undefined,
+      onlineNewsLicenses: onlineNewsLicenses.length ? onlineNewsLicenses : undefined,
+      printNewsLicenses: printNewsLicenses.length ? printNewsLicenses : undefined,
       first: 25,
       after: params.after,
     }),
@@ -41,7 +57,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <SessionBar />
       </div>
 
-      <SearchFilters initialName={params.name} initialType={params.type} />
+      <SearchFilters
+        initialName={params.name}
+        initialType={params.type}
+        initialRealtimeStatus={params.realtimeStatus}
+        initialCategories={params.categories}
+        initialLicenses={params.licenses}
+      />
 
       <div className="mt-6">
         <SearchTable searches={connection.nodes} />

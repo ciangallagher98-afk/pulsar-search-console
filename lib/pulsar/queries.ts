@@ -48,8 +48,30 @@ const HISTORIC_FIELDS = `
 `;
 
 export const SEARCHES_QUERY = `
-  query Searches($name: String, $status: [SearchStatusEnum!], $type: [SearchTypeEnum!], $first: Int, $after: String) {
-    searches(name: $name, status: $status, type: $type, first: $first, after: $after, sortBy: UPDATED_AT, orderDirection: DESC) {
+  query Searches(
+    $name: String
+    $status: [SearchStatusEnum!]
+    $type: [SearchTypeEnum!]
+    $realtimeStatus: [SearchRealtimeStatusEnum!]
+    $categories: [CategoryEnum!]
+    $onlineNewsLicenses: [OnlineNewsLicenseEnum!]
+    $printNewsLicenses: [PrintNewsLicenseEnum!]
+    $first: Int
+    $after: String
+  ) {
+    searches(
+      name: $name
+      status: $status
+      type: $type
+      realtimeStatus: $realtimeStatus
+      categories: $categories
+      onlineNewsLicenses: $onlineNewsLicenses
+      printNewsLicenses: $printNewsLicenses
+      first: $first
+      after: $after
+      sortBy: UPDATED_AT
+      orderDirection: DESC
+    ) {
       totalCount
       pageInfo {
         hasNextPage
