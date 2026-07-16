@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getSearches } from "@/lib/pulsar/api";
+import { withAuthGuard } from "@/lib/pulsar/guard";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchTable } from "@/components/search-table";
+import { SessionBar } from "@/components/session-bar";
 import type { SearchType } from "@/lib/pulsar/types";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +20,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const type = params.type ? ([params.type] as SearchType[]) : undefined;
 
-  const connection = await getSearches({
-    name: params.name,
-    type,
-    first: 25,
-    after: params.after,
-  });
+  const connection = await withAuthGuard(() =>
+    getSearches({
+      name: params.name,
+      type,
+      first: 25,
+      after: params.after,
+    }),
+  );
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -34,6 +38,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             {connection.totalCount} searches on your Pulsar team
           </p>
         </div>
+        <SessionBar />
       </div>
 
       <SearchFilters initialName={params.name} initialType={params.type} />

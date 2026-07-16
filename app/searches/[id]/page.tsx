@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSearch } from "@/lib/pulsar/api";
+import { withAuthGuard } from "@/lib/pulsar/guard";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataSourceGrid } from "@/components/data-source-grid";
 import { HistoricPanel } from "@/components/historic-panel";
 import { LiveCollectionPanel } from "@/components/live-collection-panel";
+import { SessionBar } from "@/components/session-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +17,18 @@ interface PageProps {
 
 export default async function SearchDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const search = await getSearch(id);
+  const search = await withAuthGuard(() => getSearch(id));
 
   if (!search) notFound();
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
-      <Link href="/" className="text-sm text-muted-foreground hover:underline">
-        ← All searches
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/" className="text-sm text-muted-foreground hover:underline">
+          ← All searches
+        </Link>
+        <SessionBar />
+      </div>
 
       <div className="mt-2 mb-8 flex items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">

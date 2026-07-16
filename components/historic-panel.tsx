@@ -79,8 +79,16 @@ export function HistoricPanel({
     const hasTransient = historics.some((h) => TRANSIENT_STATUSES.has(h.status));
     if (hasTransient && !pollRef.current) {
       pollRef.current = setInterval(async () => {
-        const fresh = await listHistorics(searchId);
-        setHistorics(fresh);
+        const result = await listHistorics(searchId);
+        if (!result.ok) {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          toast.error(result.error ?? "Couldn't refresh historics");
+          return;
+        }
+        setHistorics(result.historics);
       }, 3000);
     }
     if (!hasTransient && pollRef.current) {
@@ -126,7 +134,7 @@ export function HistoricPanel({
       }
       toast.success("Historic created — generating preview…");
       const fresh = await listHistorics(searchId);
-      setHistorics(fresh);
+      if (fresh.ok) setHistorics(fresh.historics);
     });
   }
 
@@ -139,7 +147,7 @@ export function HistoricPanel({
       }
       toast.success(`${ACTION_LABEL[action]} succeeded`);
       const fresh = await listHistorics(searchId);
-      setHistorics(fresh);
+      if (fresh.ok) setHistorics(fresh.historics);
     });
   }
 
