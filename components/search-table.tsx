@@ -29,7 +29,7 @@ export function SearchTable({ searches }: { searches: Search[] }) {
 
   if (searches.length === 0) {
     return (
-      <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
         No searches match these filters.
       </div>
     );
@@ -64,10 +64,10 @@ export function SearchTable({ searches }: { searches: Search[] }) {
     <div className="space-y-3">
       {selectedSearches.length > 0 && <BulkActionsToolbar searches={selectedSearches} />}
 
-      <div className="rounded-md border">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-10">
                 <Checkbox
                   checked={allSelected}
@@ -85,7 +85,11 @@ export function SearchTable({ searches }: { searches: Search[] }) {
           </TableHeader>
           <TableBody>
             {searches.map((search) => (
-              <TableRow key={search.id} data-state={selected.has(search.id) ? "selected" : undefined}>
+              <TableRow
+                key={search.id}
+                data-state={selected.has(search.id) ? "selected" : undefined}
+                className="data-[state=selected]:bg-accent/50"
+              >
                 <TableCell>
                   <Checkbox
                     checked={selected.has(search.id)}

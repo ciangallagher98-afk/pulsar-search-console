@@ -1,8 +1,8 @@
 import { getFolders, getSearches } from "@/lib/pulsar/api";
 import { withAuthGuard } from "@/lib/pulsar/guard";
+import { AppHeader } from "@/components/app-header";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchTable } from "@/components/search-table";
-import { SessionBar } from "@/components/session-bar";
 import { PaginationBar } from "@/components/pagination-bar";
 import { FolderNav } from "@/components/folder-nav";
 import { splitLicenseValues, type Category, type SearchRealtimeStatus, type SearchType } from "@/lib/pulsar/types";
@@ -64,44 +64,44 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const rangeEnd = rangeStart + connection.nodes.length - 1;
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pulsar Search Console</h1>
+    <>
+      <AppHeader />
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight">All searches</h1>
           <p className="text-sm text-muted-foreground">
             {connection.totalCount} searches on your Pulsar team
           </p>
         </div>
-        <SessionBar />
-      </div>
 
-      <FolderNav folders={folders} activeFolderId={params.folderId} />
+        <FolderNav folders={folders} activeFolderId={params.folderId} />
 
-      <SearchFilters
-        initialFolderId={params.folderId}
-        initialName={params.name}
-        initialType={params.type}
-        initialRealtimeStatus={params.realtimeStatus}
-        initialCategories={params.categories}
-        initialLicenses={params.licenses}
-      />
-
-      <div className="mt-6">
-        <SearchTable searches={connection.nodes} />
-      </div>
-
-      <div className="mt-6">
-        <PaginationBar
-          currentParams={params}
-          cursors={cursors}
-          pageSize={pageSize}
-          rangeStart={rangeStart}
-          rangeEnd={rangeEnd}
-          totalCount={connection.totalCount}
-          hasNextPage={connection.pageInfo.hasNextPage}
-          nextCursor={connection.pageInfo.endCursor}
+        <SearchFilters
+          initialFolderId={params.folderId}
+          initialName={params.name}
+          initialType={params.type}
+          initialRealtimeStatus={params.realtimeStatus}
+          initialCategories={params.categories}
+          initialLicenses={params.licenses}
         />
-      </div>
-    </main>
+
+        <div className="mt-6">
+          <SearchTable searches={connection.nodes} />
+        </div>
+
+        <div className="mt-6">
+          <PaginationBar
+            currentParams={params}
+            cursors={cursors}
+            pageSize={pageSize}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            totalCount={connection.totalCount}
+            hasNextPage={connection.pageInfo.hasNextPage}
+            nextCursor={connection.pageInfo.endCursor}
+          />
+        </div>
+      </main>
+    </>
   );
 }

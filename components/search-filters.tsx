@@ -129,9 +129,7 @@ export function SearchFilters({
         onChange={setLicenses}
         contentClassName="max-h-96 w-64 overflow-y-auto"
       />
-      <Button type="submit" variant="secondary">
-        Apply filters
-      </Button>
+      <Button type="submit">Apply filters</Button>
       {activeCount > 0 && (
         <button
           type="button"
