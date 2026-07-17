@@ -76,6 +76,21 @@ export function FolderNav({
     });
   }
 
+  // Scoped to whatever's currently visible, so this doubles as both
+  // "select all folders" (no search) and "select all matching" (searched)
+  // without a separate control — and never touches selections hidden by
+  // the current search.
+  function toggleSelectAllVisible(checked: boolean, visible: Folder[]) {
+    setSelectedFolderIds((prev) => {
+      const next = new Set(prev);
+      for (const folder of visible) {
+        if (checked) next.add(folder.id);
+        else next.delete(folder.id);
+      }
+      return next;
+    });
+  }
+
   if (activeFolder) {
     return (
       <div className="mb-4 flex items-center gap-2 text-sm">
@@ -103,9 +118,13 @@ export function FolderNav({
     );
   }
 
-  const visibleFolders = folderQuery.trim()
-    ? folders.filter((f) => f.name.toLowerCase().includes(folderQuery.trim().toLowerCase()))
+  const trimmedQuery = folderQuery.trim();
+  const visibleFolders = trimmedQuery
+    ? folders.filter((f) => f.name.toLowerCase().includes(trimmedQuery.toLowerCase()))
     : folders;
+  const allVisibleSelected =
+    visibleFolders.length > 0 && visibleFolders.every((f) => selectedFolderIds.has(f.id));
+  const someVisibleSelected = visibleFolders.some((f) => selectedFolderIds.has(f.id));
 
   return (
     <div className="mb-4 space-y-3">
@@ -120,6 +139,17 @@ export function FolderNav({
           placeholder="Search folders…"
           className="h-7 max-w-48 text-sm"
         />
+        {visibleFolders.length > 0 && (
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Checkbox
+              checked={allVisibleSelected}
+              indeterminate={someVisibleSelected && !allVisibleSelected}
+              onCheckedChange={(checked) => toggleSelectAllVisible(checked === true, visibleFolders)}
+              aria-label={trimmedQuery ? "Select all matching folders" : "Select all folders"}
+            />
+            {trimmedQuery ? `Select all matching (${visibleFolders.length})` : "Select all"}
+          </label>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
