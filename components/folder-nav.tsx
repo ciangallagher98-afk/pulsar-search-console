@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FolderIcon, FolderOpenIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { getSearchesByIds } from "@/lib/actions/search-actions";
 import { BulkActionsToolbar } from "@/components/bulk-actions-toolbar";
@@ -27,6 +28,7 @@ export function FolderNav({
   const router = useRouter();
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<number>>(new Set());
   const [bulkSearches, setBulkSearches] = useState<SelectedSearch[] | null>(null);
+  const [folderQuery, setFolderQuery] = useState("");
 
   useEffect(() => {
     if (selectedFolderIds.size === 0) {
@@ -101,6 +103,10 @@ export function FolderNav({
     );
   }
 
+  const visibleFolders = folderQuery.trim()
+    ? folders.filter((f) => f.name.toLowerCase().includes(folderQuery.trim().toLowerCase()))
+    : folders;
+
   return (
     <div className="mb-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -108,30 +114,45 @@ export function FolderNav({
           <FolderIcon className="size-4" />
           Folders
         </span>
-        {folders.map((folder) => (
-          <div
-            key={folder.id}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm transition-colors",
-              "border-border bg-background",
-              selectedFolderIds.has(folder.id) && "border-primary bg-accent",
-            )}
-          >
-            <Checkbox
-              checked={selectedFolderIds.has(folder.id)}
-              onCheckedChange={(checked) => toggleFolderSelection(folder.id, checked === true)}
-              aria-label={`Select ${folder.name} for bulk edit`}
-            />
-            <button
-              type="button"
-              onClick={() => open(String(folder.id))}
-              className="hover:underline"
+        <Input
+          value={folderQuery}
+          onChange={(e) => setFolderQuery(e.target.value)}
+          placeholder="Search folders…"
+          className="h-7 max-w-48 text-sm"
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {visibleFolders.length === 0 ? (
+          <span className="text-sm text-muted-foreground">
+            No folders match &quot;{folderQuery.trim()}&quot;.
+          </span>
+        ) : (
+          visibleFolders.map((folder) => (
+            <div
+              key={folder.id}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm transition-colors",
+                "border-border bg-background",
+                selectedFolderIds.has(folder.id) && "border-primary bg-accent",
+              )}
             >
-              {folder.name}
-            </button>
-            <span className="text-xs text-muted-foreground">{folder.searchIds.length}</span>
-          </div>
-        ))}
+              <Checkbox
+                checked={selectedFolderIds.has(folder.id)}
+                onCheckedChange={(checked) => toggleFolderSelection(folder.id, checked === true)}
+                aria-label={`Select ${folder.name} for bulk edit`}
+              />
+              <button
+                type="button"
+                onClick={() => open(String(folder.id))}
+                className="hover:underline"
+              >
+                {folder.name}
+              </button>
+              <span className="text-xs text-muted-foreground">{folder.searchIds.length}</span>
+            </div>
+          ))
+        )}
       </div>
 
       {selectedFolderIds.size > 0 && (
