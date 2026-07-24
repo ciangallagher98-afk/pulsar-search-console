@@ -50,6 +50,7 @@ export function BulkLicensesDialog({
   const [touchedOnline, setTouchedOnline] = useState<Set<OnlineNewsLicense>>(new Set());
   const [touchedPrint, setTouchedPrint] = useState<Set<PrintNewsLicense>>(new Set());
   const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [stoppedEarly, setStoppedEarly] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function toggleOnline(license: OnlineNewsLicense, checked: boolean) {
@@ -78,6 +79,7 @@ export function BulkLicensesDialog({
     setTouchedOnline(new Set());
     setTouchedPrint(new Set());
     setResults(null);
+    setStoppedEarly(false);
   }
 
   const addOnline = Array.from(touchedOnline).filter((l) => desiredOnline.has(l));
@@ -91,6 +93,7 @@ export function BulkLicensesDialog({
     startTransition(async () => {
       const result = await bulkUpdateLicenses(searches, addOnline, removeOnline, addPrint, removePrint);
       setResults(result.results);
+      setStoppedEarly(!!result.stoppedEarly);
     });
   }
 
@@ -114,7 +117,15 @@ export function BulkLicensesDialog({
         </DialogHeader>
 
         {results ? (
-          <BulkResultsTable results={results} />
+          <>
+            {stoppedEarly && (
+              <p className="text-sm text-destructive">
+                Stopped early after several updates in a row failed, rather than continuing to push the rest of a
+                possibly-broken batch. Fix the issue below, then re-run for the remaining searches.
+              </p>
+            )}
+            <BulkResultsTable results={results} />
+          </>
         ) : (
           <div className="space-y-6">
             <div className="space-y-2">

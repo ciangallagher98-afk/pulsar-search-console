@@ -99,7 +99,12 @@ export interface SearchesLookupResult {
 // folders only carry search ids, not the full records.
 export async function getSearchesByIds(ids: string[]): Promise<SearchesLookupResult> {
   try {
-    const searches = await runInBatches(ids, (id) => getSearch(id));
+    // A folder selection can span hundreds of searches — paced the same as
+    // the bulk write paths, since product flagged this read path too.
+    const { results: searches } = await runInBatches(ids, (id) => getSearch(id), {
+      concurrency: 3,
+      delayMs: 200,
+    });
     return {
       ok: true,
       searches: searches

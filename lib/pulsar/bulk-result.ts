@@ -12,6 +12,7 @@ export interface BulkResult {
 export interface BulkRunResult {
   results: BulkResult[];
   sessionExpired: boolean;
+  stoppedEarly?: boolean;
 }
 
 // Pulsar creates one Historic per data-source category, so a multi-category
@@ -28,6 +29,7 @@ export interface BulkHistoricResult {
 export interface BulkHistoricRunResult {
   results: BulkHistoricResult[];
   sessionExpired: boolean;
+  stoppedEarly?: boolean;
 }
 
 export interface BulkHistoricStatus {

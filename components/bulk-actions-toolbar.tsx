@@ -24,7 +24,11 @@ export function BulkActionsToolbar({
     startTransition(async () => {
       const result = await bulkStartSearch(searches);
       const succeeded = result.results.filter((r) => r.ok).length;
-      if (succeeded === result.results.length) {
+      if (result.stoppedEarly) {
+        toast.error(
+          `Stopped after several starts in a row failed — ${succeeded} of ${searches.length} started before stopping. Check individual searches, fix the issue, then start the rest.`,
+        );
+      } else if (succeeded === result.results.length) {
         toast.success(`Started live collection for ${succeeded} searches`);
       } else {
         toast.error(
@@ -88,7 +92,7 @@ export function BulkActionsToolbar({
             </Button>
           }
           title={`Start live collection for ${searches.length} searches?`}
-          description="This starts real-time data collection using each search's current data sources. This is a production action that may incur usage costs."
+          description="This starts real-time data collection using each search's current data sources. This is a production action that may incur usage costs. Starts go out a few at a time with a short pause between them, so a large batch may take a while to fully start."
           confirmLabel="Go live"
           onConfirm={goLive}
         />

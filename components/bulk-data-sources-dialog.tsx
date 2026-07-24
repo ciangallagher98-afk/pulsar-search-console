@@ -40,6 +40,7 @@ export function BulkDataSourcesDialog({
   );
   const [touched, setTouched] = useState<Set<Category>>(new Set());
   const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [stoppedEarly, setStoppedEarly] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function toggle(category: Category, checked: boolean) {
@@ -58,6 +59,7 @@ export function BulkDataSourcesDialog({
     );
     setTouched(new Set());
     setResults(null);
+    setStoppedEarly(false);
   }
 
   const toAdd = Array.from(touched).filter((c) => desired.has(c));
@@ -67,6 +69,7 @@ export function BulkDataSourcesDialog({
     startTransition(async () => {
       const result = await bulkUpdateDataSources(searches, toAdd, toRemove);
       setResults(result.results);
+      setStoppedEarly(!!result.stoppedEarly);
     });
   }
 
@@ -90,7 +93,15 @@ export function BulkDataSourcesDialog({
         </DialogHeader>
 
         {results ? (
-          <BulkResultsTable results={results} />
+          <>
+            {stoppedEarly && (
+              <p className="text-sm text-destructive">
+                Stopped early after several updates in a row failed, rather than continuing to push the rest of a
+                possibly-broken batch. Fix the issue below, then re-run for the remaining searches.
+              </p>
+            )}
+            <BulkResultsTable results={results} />
+          </>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2">
             {CATEGORY_GROUPS.map((group) => (

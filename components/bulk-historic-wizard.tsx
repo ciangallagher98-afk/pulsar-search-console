@@ -96,9 +96,13 @@ export function BulkHistoricWizard({
     if (pollRef.current) return;
 
     pollRef.current = setInterval(async () => {
+      // Only refetch rows still settling — re-polling rows that already
+      // finished on every tick was pure waste, and product flagged this
+      // recurring polling load specifically.
       const pairs = rows
-        .filter((r) => r.historicIds.length > 0)
+        .filter((r) => r.historicIds.length > 0 && !rowSettled(r))
         .map((r) => ({ searchId: r.searchId, historicIds: r.historicIds, name: r.name }));
+      if (pairs.length === 0) return;
       const result = await bulkRefreshHistorics(pairs);
       if (result.sessionExpired) {
         if (pollRef.current) {
@@ -114,7 +118,7 @@ export function BulkHistoricWizard({
           return match ? { ...row, historics: match.historics, error: match.error } : row;
         }),
       );
-    }, 3000);
+    }, 5000);
 
     return () => {
       if (pollRef.current) {
@@ -181,6 +185,11 @@ export function BulkHistoricWizard({
 
       const result = await bulkDispatchHistoricAction(items);
       setLaunchResults(result.results);
+      if (result.stoppedEarly) {
+        toast.error(
+          "Stopped early after several launches in a row failed, rather than continuing to fire the rest of a possibly-broken batch. Check the results below, fix the issue, then launch the remaining rows.",
+        );
+      }
     });
   }
 
@@ -359,7 +368,7 @@ export function BulkHistoricWizard({
                 </Button>
               }
               title={`Launch ingestion for ${checkedCount} searches?`}
-              description={`This authorizes and starts real historic ingestion, totaling an estimated ${checkedTotal.toLocaleString()} items. This is a billable, production action.`}
+              description={`This authorizes and starts real historic ingestion, totaling an estimated ${checkedTotal.toLocaleString()} items. This is a billable, production action. Launches go out a few at a time with a short pause between them, so a large batch may take a while to fully start.`}
               confirmLabel="Launch"
               destructive
               onConfirm={launch}
