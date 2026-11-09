@@ -10,8 +10,8 @@ export function BulkResultsTable({ results }: { results: BulkResult[] }) {
         {succeeded} of {results.length} succeeded
       </p>
       <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
-        {results.map((result) => (
-          <div key={result.searchId} className="flex items-start gap-2 text-sm">
+        {results.map((result, index) => (
+          <div key={`${result.searchId}-${index}`} className="flex items-start gap-2 text-sm">
             {result.ok ? (
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
             ) : (

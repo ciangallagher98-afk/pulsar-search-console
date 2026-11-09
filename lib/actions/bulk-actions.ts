@@ -1,24 +1,23 @@
 "use server";
 
+// Job-creating actions (go live, create historic previews, launch
+// ingestion) live in job-actions.ts and run one per minute from the
+// browser. What stays here are edits, stops and status reads.
+
 import { revalidatePath } from "next/cache";
 import { pulsarRequest, PulsarApiError, PulsarAuthError } from "@/lib/pulsar/client";
 import { getSearch, getHistorics } from "@/lib/pulsar/api";
 import { buildUpdateSearchPlan } from "@/lib/pulsar/search-kind";
 import { runInBatches } from "@/lib/pulsar/batch";
-import { ACTION_MUTATION } from "@/lib/pulsar/historic-status";
-import { CREATE_HISTORIC, START_SEARCH, STOP_SEARCH, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
+import { STOP_SEARCH, errorMessage, type MutationError } from "@/lib/pulsar/mutations";
 import {
   SESSION_EXPIRED_MESSAGE,
-  type BulkHistoricRunResult,
   type BulkHistoricStatusRunResult,
   type BulkResult,
   type BulkRunResult,
 } from "@/lib/pulsar/bulk-result";
 import type {
   Category,
-  Historic,
-  HistoricAvailableAction,
-  HistoricCategory,
   OnlineNewsLicense,
   PrintNewsLicense,
 } from "@/lib/pulsar/types";
@@ -133,31 +132,6 @@ export async function bulkUpdateLicenses(
   return toRunResult(results, stoppedEarly);
 }
 
-export async function bulkStartSearch(
-  searches: { id: string; name: string }[],
-): Promise<BulkRunResult> {
-  // Starting live collection kicks off a real, ongoing job per search on
-  // Pulsar's platform — paced and capped tighter than the default, with a
-  // circuit breaker so a broken batch doesn't queue dozens of failing starts.
-  const { results, stoppedEarly } = await runInBatches(
-    searches,
-    ({ id, name }) =>
-      toBulkResult(id, name, async () => {
-        const data = await pulsarRequest<{ startSearch: { errors: MutationError[] } }>(START_SEARCH, {
-          input: { id },
-        });
-        if (data.startSearch.errors?.length) {
-          return { ok: false, error: errorMessage(data.startSearch.errors) };
-        }
-        revalidatePath(`/searches/${id}`);
-        return { ok: true };
-      }),
-    { concurrency: 3, delayMs: 300, maxConsecutiveFailures: 3, isFailure: (r) => !r.ok },
-  );
-  revalidatePath("/");
-  return toRunResult(results, stoppedEarly);
-}
-
 export async function bulkStopSearch(
   searches: { id: string; name: string }[],
 ): Promise<BulkRunResult> {
@@ -175,63 +149,6 @@ export async function bulkStopSearch(
   );
   revalidatePath("/");
   return toRunResult(results);
-}
-
-export async function bulkCreateHistorics(
-  searches: { id: string; name: string }[],
-  categories: HistoricCategory[],
-  startDate: string,
-  endDate: string,
-  onlineNewsLicenses?: OnlineNewsLicense[],
-  printNewsLicenses?: PrintNewsLicense[],
-): Promise<BulkHistoricRunResult> {
-  // Pulsar creates one Historic per data-source category per search, so this
-  // fans out into searches.length * categories.length records — paced and
-  // capped tighter than the default, with a circuit breaker for the same
-  // reason as bulkStartSearch above.
-  const { results, stoppedEarly } = await runInBatches(
-    searches,
-    async ({ id, name }) => {
-      try {
-        const data = await pulsarRequest<{
-          createHistoric: { errors: MutationError[]; historics: Historic[] | null };
-        }>(CREATE_HISTORIC, {
-          input: {
-            searchId: id,
-            categories,
-            startDate,
-            endDate,
-            onlineNewsLicenses: onlineNewsLicenses?.length ? onlineNewsLicenses : undefined,
-            printNewsLicenses: printNewsLicenses?.length ? printNewsLicenses : undefined,
-          },
-        });
-        if (data.createHistoric.errors?.length) {
-          return { searchId: id, name, historicIds: [], ok: false, error: errorMessage(data.createHistoric.errors) };
-        }
-        const historics = data.createHistoric.historics ?? [];
-        if (historics.length === 0) {
-          return { searchId: id, name, historicIds: [], ok: false, error: "No historic returned" };
-        }
-        return { searchId: id, name, historicIds: historics.map((h) => h.id), ok: true };
-      } catch (error) {
-        if (error instanceof PulsarAuthError) {
-          return { searchId: id, name, historicIds: [], ok: false, error: SESSION_EXPIRED_MESSAGE };
-        }
-        if (error instanceof PulsarApiError) {
-          return { searchId: id, name, historicIds: [], ok: false, error: error.message };
-        }
-        return {
-          searchId: id,
-          name,
-          historicIds: [],
-          ok: false,
-          error: "Something went wrong talking to Pulsar.",
-        };
-      }
-    },
-    { concurrency: 3, delayMs: 300, maxConsecutiveFailures: 3, isFailure: (r) => !r.ok },
-  );
-  return { results, sessionExpired: results.some((r) => r.error === SESSION_EXPIRED_MESSAGE), stoppedEarly };
 }
 
 export async function bulkRefreshHistorics(
@@ -259,35 +176,4 @@ export async function bulkRefreshHistorics(
     { concurrency: 3, delayMs: 200 },
   );
   return { statuses, sessionExpired: statuses.some((s) => s.error === SESSION_EXPIRED_MESSAGE) };
-}
-
-export async function bulkDispatchHistoricAction(
-  items: { searchId: string; historicId: number; name: string; action: HistoricAvailableAction }[],
-): Promise<BulkRunResult> {
-  // The only caller today is the bulk historic wizard's Launch step —
-  // AUTHORIZE_AND_START/LAUNCH here is the moment real ingestion jobs get
-  // queued on Pulsar's platform, one per historic (one per category per
-  // search). This is the single highest job-multiplier action in this tool,
-  // so it gets the tightest pacing and a circuit breaker.
-  const { results, stoppedEarly } = await runInBatches(
-    items,
-    ({ searchId, historicId, name, action }) =>
-      toBulkResult(searchId, name, async () => {
-        if (action === "EXPORT") {
-          return { ok: false, error: "Export is not supported in this tool yet." };
-        }
-        const mutation = ACTION_MUTATION[action];
-        const data = await pulsarRequest<Record<string, { errors: MutationError[] }>>(mutation, {
-          input: { ids: [historicId] },
-        });
-        const payload = Object.values(data)[0];
-        if (payload.errors?.length) {
-          return { ok: false, error: errorMessage(payload.errors) };
-        }
-        revalidatePath(`/searches/${searchId}`);
-        return { ok: true };
-      }),
-    { concurrency: 3, delayMs: 400, maxConsecutiveFailures: 3, isFailure: (r) => !r.ok },
-  );
-  return toRunResult(results, stoppedEarly);
 }

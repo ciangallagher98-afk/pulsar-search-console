@@ -9,6 +9,18 @@ export interface BulkResult {
   error?: string;
 }
 
+// One job-creating action, run one at a time from the browser's paced queue.
+// `retryAfterMs` is set when the server-side gate said "too soon" — the job
+// was NOT sent to Pulsar, and the queue should wait that long and try again
+// rather than count it as a failure.
+export interface JobResult extends BulkResult {
+  retryAfterMs?: number;
+}
+
+export interface HistoricJobResult extends BulkHistoricResult {
+  retryAfterMs?: number;
+}
+
 export interface BulkRunResult {
   results: BulkResult[];
   sessionExpired: boolean;
